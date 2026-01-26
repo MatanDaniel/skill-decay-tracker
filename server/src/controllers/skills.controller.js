@@ -1,15 +1,12 @@
 const db = require("../db");
 
-/**
- * GET /skills
- * Returns all skills from the database.
- */
+
+//query DB → get rows → return rows to client.
 async function listSkills(req, res, next) {
   try {
-    const result = await db.query(
-      "SELECT id, name, category, created_at FROM skills ORDER BY id ASC"
-    );
-    res.json(result.rows);
+    //runs your SQL against Postgres, and passes MAX_DAYS as $1 in the query.
+    const result = await db.query(getListSkillsSql(), [MAX_DAYS]);
+    res.json(result.rows);//sends that array back to the frontend as JSON.
   } catch (err) {
     next(err);
   }
@@ -19,28 +16,28 @@ async function listSkills(req, res, next) {
  * POST /skills
  * Body: { "name": "SQL", "category": "backend" }
  * Creates a new skill and returns it.
- */
+*/
 async function createSkill(req, res, next) {
   try {
     const { name, category } = req.body;
-
+    
     // Basic validation
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return res.status(400).json({ error: "name is required (non-empty string)" });
     }
-
+    
     const cleanName = name.trim();
     const cleanCategory = typeof category === "string" ? category.trim() : null;
-
+    
     const result = await db.query(
       `
-        INSERT INTO skills (name, category, created_at)
-        VALUES ($1, $2, NOW())
-        RETURNING id, name, category, created_at
-    `   ,
-        [cleanName, cleanCategory]
+      INSERT INTO skills (name, category, created_at)
+      VALUES ($1, $2, NOW())
+      RETURNING id, name, category, created_at
+      `   ,
+      [cleanName, cleanCategory]
     );
-
+    
     // 201 = created
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -179,6 +176,37 @@ async function practiceSkill(req, res, next) {
     next(err);
   }
 }
+
+// ----- Helper SQL -----
+
+const MAX_DAYS = 30; // After 30 days without practice, decay_score reaches 100 (fully decayed)
+
+function getListSkillsSql() {
+  return `
+    SELECT
+      id, name, category, last_practiced_at,
+      LEAST(
+        100,
+        GREATEST(
+          0,
+          ROUND(
+            (EXTRACT(EPOCH FROM (NOW() - last_practiced_at)) / 86400) / $1 * 100
+          )
+        )
+      )::int AS decay_score
+    FROM skills
+    ORDER BY id DESC
+  `;
+}
+/**
+ * ****getListSkillsSql:
+ * Returns the SQL query used by GET /api/skills.
+ * It returns all skills + a backend-computed decay_score (0..100).
+ *
+ * decay_score meaning:
+ *   0   = practiced just now / very fresh
+ *   100 = fully decayed (>= MAX_DAYS days since last_practiced_at)
+ */
 
 module.exports = {
   listSkills,
