@@ -1,80 +1,89 @@
-import { useMemo } from "react"
+import { Link } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import { Button } from "@/components/ui/button"
+import { ArrowRight, Flame, Layers, TrendingUp } from "lucide-react"
 
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n))
+import DecayDistributionChart from "../components/dashboard/DecayDistributionChart"
+import NextToPracticeTable from "../components/dashboard/NextToPracticeTable"
+
+function StatCard({ title, value, icon: Icon, hint }) {
+  return (
+    <Card className="bg-background/60 backdrop-blur">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-sm text-muted-foreground">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-3xl font-semibold tracking-tight">{value}</div>
+        {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+      </CardContent>
+    </Card>
+  )
 }
 
-export default function Dashboard({ skills }) {
-  const stats = useMemo(() => {
-    const total = skills.length
-    const avgDecay =
-      total === 0 ? 0 : Math.round(skills.reduce((sum, s) => sum + (Number(s.decay_score) || 0), 0) / total)
-
-    const highDecay = skills.filter((s) => (Number(s.decay_score) || 0) >= 70).length
-
-    // simple buckets for a chart 
-    const buckets = [
-      { name: "0-19", count: 0 },
-      { name: "20-39", count: 0 },
-      { name: "40-59", count: 0 },
-      { name: "60-79", count: 0 },
-      { name: "80-100", count: 0 },
-    ]
-
-    for (const s of skills) {
-      const d = clamp(Number(s.decay_score) || 0, 0, 100)
-      if (d < 20) buckets[0].count++
-      else if (d < 40) buckets[1].count++
-      else if (d < 60) buckets[2].count++
-      else if (d < 80) buckets[3].count++
-      else buckets[4].count++
-    }
-
-    return { total, avgDecay, highDecay, buckets }
-  }, [skills])
-
+export default function Dashboard({ skills, stats, onPractice, onDelete, disabled }) {
   return (
-    <div className="grid gap-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total skills</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold">{stats.total}</CardContent>
-        </Card>
+    <div className="space-y-6">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Insights based on your practice history and decay score.
+          </p>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Average decay</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold">{stats.avgDecay}</CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">High decay (70+)</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold">{stats.highDecay}</CardContent>
-        </Card>
+        <Button asChild className="rounded-full">
+          <Link to="/skills">
+            Manage skills <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Decay distribution</CardTitle>
-        </CardHeader>
-        <CardContent className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.buckets}>
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="count" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          title="Total skills"
+          value={stats.total}
+          icon={Layers}
+          hint="All skills currently tracked"
+        />
+        <StatCard
+          title="Average decay"
+          value={stats.avg}
+          icon={TrendingUp}
+          hint="0 = fresh, 100 = fully decayed"
+        />
+        <StatCard
+          title="High decay (70+)"
+          value={stats.high}
+          icon={Flame}
+          hint="Skills that need attention soon"
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Card className="bg-background/60 backdrop-blur lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Decay distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DecayDistributionChart skills={skills} />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-background/60 backdrop-blur lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Next to practice</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <NextToPracticeTable
+              skills={stats.nextToPractice}
+              onPractice={onPractice}
+              onDelete={onDelete}
+              disabled={disabled}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

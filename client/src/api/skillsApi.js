@@ -19,7 +19,11 @@ async function request(path, options = {}) {
 }
 
 export function getSkills() {
-  return request('/skills');
+  return request("/skills");
+}
+
+export function getSkill(id) {
+  return request(`/skills/${id}`);
 }
 
 export function createSkill({ name, category }) {
