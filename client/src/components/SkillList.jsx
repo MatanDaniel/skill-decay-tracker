@@ -187,6 +187,9 @@ export default function SkillList({
                     >
                       Practice
                     </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/skills/${s.id}`}>Notes</Link>
+                    </Button>
 
                     <Button
                       variant="destructive"

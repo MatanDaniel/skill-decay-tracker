@@ -234,6 +234,210 @@ async function practiceSkill(req, res, next) {
   }
 }
 
+// GET /skills/:id/notes
+async function listNotesForSkill(req, res, next) {
+  try {
+    const skillId = Number(req.params.id);
+
+    if (!Number.isInteger(skillId) || skillId <= 0) {
+      return res.status(400).json({ error: "skill id must be a positive integer" });
+    }
+
+    // Optional but good: make sure the skill exists first
+    const skillCheck = await db.query(
+      `SELECT id FROM skills WHERE id = $1`,
+      [skillId]
+    );
+
+    if (skillCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Skill not found" });
+    }
+
+    const result = await db.query(
+      `
+      SELECT id, skill_id, content, created_at
+      FROM skill_notes
+      WHERE skill_id = $1
+      ORDER BY created_at DESC, id DESC
+      `,
+      [skillId]
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /skills/:id/skill_notes
+// Body: { "content": "..." }
+async function createNoteForSkill(req, res, next) {
+  try {
+    const skillId = Number(req.params.id);
+    const { content } = req.body || {};
+
+    if (!Number.isInteger(skillId) || skillId <= 0) {
+      return res.status(400).json({ error: "skill id must be a positive integer" });
+    }
+
+    if (typeof content !== "string" || content.trim().length === 0) {
+      return res.status(400).json({ error: "content is required" });
+    }
+
+    const trimmedContent = content.trim();
+
+    // Make sure the skill exists
+    const skillCheck = await db.query(
+      `SELECT id FROM skills WHERE id = $1`,
+      [skillId]
+    );
+
+    if (skillCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Skill not found" });
+    }
+
+    const result = await db.query(
+      `
+      INSERT INTO skill_notes (skill_id, content, created_at)
+      VALUES ($1, $2, NOW())
+      RETURNING id, skill_id, content, created_at
+      `,
+      [skillId, trimmedContent]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /skills/:id/skill_notes/:noteId
+async function deleteNoteForSkill(req, res, next) {
+  try {
+    const skillId = Number(req.params.id);
+    const noteId = Number(req.params.noteId);
+
+    if (!Number.isInteger(skillId) || skillId <= 0) {
+      return res.status(400).json({ error: "skill id must be a positive integer" });
+    }
+
+    if (!Number.isInteger(noteId) || noteId <= 0) {
+      return res.status(400).json({ error: "note id must be a positive integer" });
+    }
+
+    const result = await db.query(
+      `
+      DELETE FROM skill_notes
+      WHERE id = $1 AND skill_id = $2
+      RETURNING id
+      `,
+      [noteId, skillId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /skills/:id/progress-history
+// Returns all readiness score history rows for one skill
+async function getProgressHistoryForSkill(req, res, next) {
+  try {
+    const skillId = Number(req.params.id);
+
+    // Validate skill id
+    if (!Number.isInteger(skillId) || skillId <= 0) {
+      return res.status(400).json({ error: "skill id must be a positive integer" });
+    }
+
+    // Make sure the skill exists first
+    const skillCheck = await db.query(
+      `SELECT id FROM skills WHERE id = $1`,
+      [skillId]
+    );
+
+    if (skillCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Skill not found" });
+    }
+
+    // Fetch all history points for this skill
+    const result = await db.query(
+      `
+      SELECT id, "skillId", readiness_score, recorded_at
+      FROM skill_progress_history
+      WHERE "skillId" = $1
+      ORDER BY recorded_at ASC, id ASC
+      `,
+      [skillId]
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /skills/:id/progress-history
+// Body: { "readiness_score": 72 }
+async function addProgressHistoryForSkill(req, res, next) {
+  try {
+    const skillId = Number(req.params.id);
+    const readinessScore = Number(req.body?.readiness_score);
+
+    // Validate skill id
+    if (!Number.isInteger(skillId) || skillId <= 0) {
+      return res.status(400).json({ error: "skill id must be a positive integer" });
+    }
+
+    // Validate readiness score
+    if (!Number.isInteger(readinessScore) || readinessScore < 0 || readinessScore > 100) {
+      return res.status(400).json({ error: "readiness_score must be an integer between 0 and 100" });
+    }
+
+    // Make sure the skill exists
+    const skillCheck = await db.query(
+      `SELECT id FROM skills WHERE id = $1`,
+      [skillId]
+    );
+
+    if (skillCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Skill not found" });
+    }
+
+    // Update the CURRENT value in skills table
+    await db.query(
+      `
+      UPDATE skills
+      SET readiness_score = $1
+      WHERE id = $2
+      `,
+      [readinessScore, skillId]
+    );
+
+    // Insert a NEW history snapshot
+    const result = await db.query(
+      `
+      INSERT INTO skill_progress_history ("skillId", readiness_score, recorded_at)
+      VALUES ($1, $2, NOW())
+      RETURNING id, "skillId", readiness_score, recorded_at
+      `,
+      [skillId, readinessScore]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+
+
 module.exports = {
   listSkills,
   createSkill,
@@ -241,4 +445,9 @@ module.exports = {
   updateSkill,
   deleteSkill,
   practiceSkill,
+  listNotesForSkill,
+  createNoteForSkill,
+  deleteNoteForSkill,
+  getProgressHistoryForSkill,
+  addProgressHistoryForSkill,
 };

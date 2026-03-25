@@ -38,8 +38,76 @@ export function deleteSkill(id) {
 }
 
 
-export async function practiceSkill(id) {
-  const res = await fetch(`/api/skills/${id}/practice`, { method: "PATCH" });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+export function practiceSkill(id) {
+  return request(`/skills/${id}/practice`, { method: "PATCH" });
 }
+
+
+// Notes
+export function getNotes(skillId) {
+  return request(`/skills/${skillId}/notes`);
+}
+export function addNote(skillId, content) {
+  return request(`/skills/${skillId}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+}
+export function deleteNote(skillId, noteId) {
+  return request(`/skills/${skillId}/notes/${noteId}`, { method: "DELETE" });
+}
+
+// Questions
+export function getQuestions(skillId) {
+  return request(`/skills/${skillId}/questions`);
+}
+export function addQuestion(skillId, question, answer) {
+  return request(`/skills/${skillId}/questions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, answer }),
+  });
+}
+export function updateQuestion(skillId, questionId, patch) {
+  return request(`/skills/${skillId}/questions/${questionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+}
+export function deleteQuestion(skillId, questionId) {
+  return request(`/skills/${skillId}/questions/${questionId}`, { method: "DELETE" });
+}
+
+// Sessions
+export function getSessions(skillId) {
+  return request(`/skills/${skillId}/sessions`);
+}
+export function addSession(skillId, minutes) {
+  return request(`/skills/${skillId}/sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ minutes }),
+  });
+}
+
+
+// Progress History
+// -------------------------
+
+// Get all readiness-score history rows for one skill
+export function getProgressHistory(skillId) {
+  // Reuse the same request() helper and BASE constant as the rest of the file
+  return request(`/skills/${skillId}/progress-history`);
+}
+
+// Add a new readiness-score snapshot for one skill
+export function addProgressHistory(skillId, readinessScore) {
+  return request(`/skills/${skillId}/progress-history`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ readiness_score: readinessScore }),
+  });
+}
+

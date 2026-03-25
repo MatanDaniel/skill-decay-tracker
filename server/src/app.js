@@ -4,7 +4,7 @@
 //Adds middleware (express.json())
 //Connects routes (/api/skills, /api/...)
 //Starts listening on a port
-//Think of it as the “wiring” file.
+//This file is like the “wiring” file.
 
 
 
@@ -35,6 +35,11 @@ app.get("/db-test", async (req, res, next) => {
 const port = process.env.PORT || 3000;
 app.use(notFound);
 app.use(errorHandler);
+
+app.use("/api/skills", require("./routes/skills.routes"));
+app.use("/api/skills", require("./routes/skillDetails.routes")); 
+
+
 app.listen(port, () => console.log(`Listening on http://localhost:${port}`));
 
 
